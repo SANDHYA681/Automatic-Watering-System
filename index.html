@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatic watering system</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f3f4f6;
+      color: #333;
+    }
+
+    header {
+      background-color: #0277bd;
+      color: white;
+      padding: 20px 0;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2.5em;
+      text-transform: uppercase;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+
+    .data-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-evenly;
+      gap: 20px;
+    }
+
+    .data-box {
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+      flex: 1;
+      max-width: 220px;
+      min-width: 160px;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .data-box:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+    }
+
+    .data-box h3 {
+      font-size: 1.8em;
+      margin-bottom: 15px;
+      color: #0277bd;
+    }
+
+    .data-box p {
+      font-size: 1.5em;
+      margin: 0;
+      color: #333;
+    }
+
+    .status {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 1.3em;
+      color: #0277bd;
+      font-weight: bold;
+    }
+
+    footer {
+      margin-top: 40px;
+      background-color: #0277bd;
+      color: white;
+      padding: 15px 0;
+      text-align: center;
+      font-size: 1em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Automatic watering System</h1>
+  </header>
+
+  <div class="container">
+    <div class="data-container">
+      <div class="data-box" id="moistureBox">
+        <h3>Soil Moisture</h3>
+        <p id="moistureValue">--</p>
+      </div>
+      <div class="data-box" id="temperatureBox">
+        <h3>Temperature</h3>
+        <p id="temperatureValue">--</p>
+      </div>
+      <div class="data-box" id="humidityBox">
+        <h3>Humidity</h3>
+        <p id="humidityValue">--</p>
+      </div>
+    </div>
+    <div class="status" id="status">Loading data...</div>
+  </div>
+
+  <footer>
+  </footer>
+
+  <script>
+    /**
+     * Fetch sensor data from the backend or ESP32.
+     * Updates UI and stores data in localStorage.
+     */
+    function fetchData() {
+      const url = 'http://localhost:5000/data'; // Replace with backend or ESP32 IP address
+
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Update UI elements
+          document.getElementById('moistureValue').textContent = `${data.moisture}%`;
+          document.getElementById('temperatureValue').textContent = `${data.temperature}°C`;
+          document.getElementById('humidityValue').textContent = `${data.humidity}%`;
+
+          // Store data in localStorage
+          localStorage.setItem('moisture', data.moisture);
+          localStorage.setItem('temperature', data.temperature);
+          localStorage.setItem('humidity', data.humidity);
+
+          // Update status
+          const statusElement = document.getElementById('status');
+          statusElement.textContent = 'Data updated successfully!';
+          statusElement.style.color = '#0277bd';
+        })
+        .catch(error => {
+          console.error('Error fetching data:', error);
+
+          // Display error message
+          const statusElement = document.getElementById('status');
+          statusElement.textContent = 'Failed to fetch data.';
+          statusElement.style.color = 'red';
+        });
+    }
+
+    /**
+     * Initialize page and start fetching data periodically.
+     */
+    window.onload = function() {
+      // Load data from localStorage (if available)
+      if (localStorage.getItem('moisture') && localStorage.getItem('temperature') && localStorage.getItem('humidity')) {
+        document.getElementById('moistureValue').textContent = `${localStorage.getItem('moisture')}%`;
+        document.getElementById('temperatureValue').textContent = `${localStorage.getItem('temperature')}°C`;
+        document.getElementById('humidityValue').textContent = `${localStorage.getItem('humidity')}%`;
+      }
+
+      // Fetch new data periodically (every 10 seconds)
+      setInterval(fetchData, 10000);
+      fetchData(); // Initial data fetch
+    };
+  </script>
+</body>
+</html>

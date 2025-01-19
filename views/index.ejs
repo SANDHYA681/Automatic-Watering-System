@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Automatic Watering System</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    /* Styles */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f3f4f6;
+      color: #333;
+    }
+
+    header {
+      background-color: #0277bd;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: 20px auto;
+    }
+
+    .status-box {
+      display: flex;
+      justify-content: space-around;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .data-box {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 200px;
+      text-align: center;
+    }
+
+    .button-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .control-btn {
+      position: absolute;
+      bottom: 1rem;
+      right: 0.5rem;
+      padding: 7px;
+      border-radius: 50%;
+      height: 2rem;
+      width: 2rem;
+      display: grid;
+      place-content: center;
+      margin: 10px;
+      font-size: 1.1em;
+      background-color: #0277bd;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .pump-card {
+      position: relative;
+    }
+
+    .control-btn:hover {
+
+      background-color: #01579b;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Automatic Watering System</h1>
+  </header>
+
+  <div class="container">
+    <div class="status-box">
+      <div class="data-box">
+        <h3>Soil Moisture</h3>
+        <p id="moisture">
+          <%= sensorData.moisture %>
+        </p>
+      </div>
+      <div class="data-box">
+        <h3>Temperature</h3>
+        <p id="temperature">
+          <%= sensorData.temperature %>°C
+        </p>
+      </div>
+      <div class="data-box">
+        <h3>Humidity</h3>
+        <p id="humidity">
+          <%= sensorData.humidity %>%
+        </p>
+      </div>
+      <div class="data-box pump-card">
+        <h3>Auto Pump Status</h3>
+        <p id="autoPump">
+          <%= sensorData.autoPump %>
+        </p>
+        <button class="control-btn power-btn" onclick="togglePump()">
+          <i class="fas fa-power-off"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function controlPump(state) {
+      axios.post('/control-pump', { state })
+        .then(response => {
+          alert(response.data);
+          location.reload();
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error controlling the pump');
+        });
+    }
+    const socket = new WebSocket('ws://localhost:8081');
+
+    // Update UI whenever new data is received
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      document.getElementById('moisture').innerText = data.moisture;
+      document.getElementById('temperature').innerText = `${data.temperature}°C`;
+      document.getElementById('humidity').innerText = `${data.humidity}%`;
+      document.getElementById('autoPump').innerText = data.autoPump;
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+  </script>
+</body>
+
+</html>
