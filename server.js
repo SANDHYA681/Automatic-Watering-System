@@ -16,17 +16,6 @@ app.use(express.json());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-const wss = new WebSocket.Server({ port: 8081 }); // WebSocket server on port 8081
-
-// Broadcast function to send data to all connected clients
-const broadcastData = async () => {
-  const data = JSON.stringify(sensorData);
-  for (const client of wss.clients) {
-    if (client.readyState === WebSocket.OPEN) {
-      await client.send(data);
-    }
-  }
-};
 // Placeholder data for the irrigation system
 let sensorData = {
   moisture: '--',
@@ -35,7 +24,32 @@ let sensorData = {
   pumpStatus: 'OFF', // Manual control status
   autoPump: 'OFF',   // Arduino-controlled pump status
 };
+// WebSocket server setup
+const wss = new WebSocket.Server({ port: 8081 });
 
+// Store connected clients
+wss.on('connection', (ws) => {
+  console.log("New WebSocket client connected");
+
+  // Send current sensor data immediately on new connection
+  ws.send(JSON.stringify(sensorData));
+
+  ws.on('close', () => {
+    console.log("WebSocket client disconnected");
+  });
+});
+
+
+
+// Broadcast function to send data to all connected clients
+const broadcastData = () => {
+  const data = JSON.stringify(sensorData);
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
+};
 
 // Serve the frontend to display data and control the system
 app.get('/', (req, res) => {
@@ -45,9 +59,8 @@ app.get('/', (req, res) => {
 // Endpoint to receive data from the Arduino/ESP32
 app.get('/sensor-data', (req, res) => {
   const { type, value } = req.query;
-  console.log(`Updated ${type}: ${value}`);
+  console.log(`Received sensor update: ${type} = ${value}`);
 
-  // Check if type or value is missing
   if (!type || value === undefined) {
     sensorData = {
       moisture: null,
@@ -60,20 +73,15 @@ app.get('/sensor-data', (req, res) => {
 
   const parsedValue = Number.parseFloat(value);
 
-  // If value is -1, ignore it or set to null (depending on how you want to handle it)
   if (parsedValue === -1) {
     return res.status(400).send({ message: "value is -1" });
-
   }
 
-  // Update the specified sensor data type if it exists
   if (type in sensorData) {
     sensorData[type] = type === 'autoPump' ? (value === 'ON' ? 'ON' : 'OFF') : parsedValue;
 
-
-    // console.log(`Updated ${type}: ${value}`);
-    broadcastData(); // Notify clients about the data change
-    res.send(`Sensor data for ${type} updated to ${value}`);
+    broadcastData(); // Notify all connected clients
+    return res.send(`Sensor data for ${type} updated to ${value}`);
   } else {
     sensorData = null
     broadcastData();
@@ -86,10 +94,10 @@ app.post('/control-pump', (req, res) => {
   const { state } = req.body;
   const pumpState = state ? 'ON' : 'OFF';
 
-  // Send manual control signal to ESP32
   axios.post(`${espIp}/control-pump`, { state })
     .then(() => {
       sensorData.pumpStatus = pumpState;
+      broadcastData(); // Notify clients about pump state change
       res.send(`Pump is now ${pumpState}`);
     })
     .catch((error) => {
@@ -97,6 +105,22 @@ app.post('/control-pump', (req, res) => {
       res.status(500).send('Failed to control the pump');
     });
 });
+
+// Fetch sensor data periodically from ESP32 (optional)
+const fetchSensorData = async () => {
+  try {
+    const response = await axios.get(`${espIp}/get-sensor-data`);
+    if (response.data) {
+      sensorData = response.data;
+      broadcastData(); // Send updated data to all clients
+    }
+  } catch (error) {
+    console.error("Error fetching sensor data:", error.message);
+  }
+};
+
+// Uncomment this if you want periodic updates (e.g., every 5 seconds)
+// setInterval(fetchSensorData, 5000);
 
 // Start the server
 app.listen(PORT, () => {
